@@ -1,0 +1,53 @@
+@import url("https://fonts.iu.edu/style.css?family=BentonSans:regular,bold%7CBentonSansCond:regular,bold%7CGeorgiaPro:regular,bold%7CAzeretMono:regular");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #243142;
+  background: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: BentonSansRegular, Helvetica, Arial, sans-serif;
+  background: #ffffff;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #990000;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #990000;
+  color: white;
+}
+
+.font-serif-iu {
+  font-family: GeorgiaProBold, Georgia, serif;
+}
+
+.font-mono-iu {
+  font-family: AzeretMono, "Courier New", monospace;
+}
+
+.font-bold-iu {
+  font-family: BentonSansBold, Helvetica, Arial, sans-serif;
+}
