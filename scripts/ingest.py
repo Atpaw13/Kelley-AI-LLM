@@ -48,9 +48,39 @@ def chunk_page(text: str, size: int = 950, overlap: int = 160) -> list[str]:
     return chunks
 
 
+def extract_page_links(page) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in getattr(page, "hyperlinks", []) or []:
+        url = item.get("uri") or item.get("url")
+        if not url or url in seen:
+            continue
+        label = clean_text(item.get("text") or url)
+        links.append({"label": label[:120], "url": url})
+        seen.add(url)
+    for annotation in getattr(page, "annots", []) or []:
+        uri = (annotation.get("uri") or annotation.get("data", {}).get("A", {}).get("URI")) if annotation else None
+        if not uri or uri in seen:
+            continue
+        links.append({"label": uri[:120], "url": uri})
+        seen.add(uri)
+    return links[:12]
+
+
+def document_priority(pdf_path: Path, first_page_text: str) -> int:
+    current_markers = ("2025/2026", "2025 - 2026", "2025-2026")
+    if any(marker in first_page_text for marker in current_markers):
+        return 2
+    if "student organization handbook" in pdf_path.stem.lower():
+        return 2
+    return 3
+
+
 def extract_chunks(pdf_path: Path) -> list[dict]:
     chunks = []
     with pdfplumber.open(pdf_path) as pdf:
+        first_page_text = clean_text(pdf.pages[0].extract_text() or "") if pdf.pages else ""
+        priority = document_priority(pdf_path, first_page_text)
         for page_index, page in enumerate(pdf.pages, start=1):
             text = clean_text(page.extract_text() or "")
             if len(text) < 80:
@@ -60,6 +90,7 @@ def extract_chunks(pdf_path: Path) -> list[dict]:
             if page_index <= 3 and "table of contents" in text.lower():
                 continue
             section = infer_section(text)
+            links = extract_page_links(page)
             for chunk_index, chunk in enumerate(chunk_page(text), start=1):
                 chunks.append(
                     {
@@ -73,8 +104,8 @@ def extract_chunks(pdf_path: Path) -> list[dict]:
                         "title": pdf_path.stem,
                         "heading": section,
                         "crawled_at": None,
-                        "links": [],
-                        "priority": 3,
+                        "links": links,
+                        "priority": priority,
                     }
                 )
     return chunks

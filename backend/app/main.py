@@ -106,7 +106,18 @@ def classify_intent(question: str) -> str | None:
         return "drop_class"
     if "advis" in q and ("appointment" in q or "schedule" in q):
         return "advising_appointment"
-    if "student organization" in q or "student organizations" in q or "get involved" in q or "involvement" in q:
+    if (
+        "student organization" in q
+        or "student organizations" in q
+        or "get involved" in q
+        or "involvement" in q
+        or "club" in q
+        or "clubs" in q
+        or "organization" in q
+        or "organizations" in q
+        or "student government" in q
+        or "ksg" in q
+    ):
         return "student_organizations"
     if "undergraduate career services" in q or "career resources" in q or "career coaching" in q:
         return "career_resources"
@@ -154,7 +165,16 @@ INTENT_EVIDENCE: dict[str, tuple[str, ...]] = {
     "resume": ("your resume should be", "star method", "one page", "proofread"),
     "major_resources": ("steps to choosing a major", "major selections", "academic advisors", "career paths"),
     "interview_prep": ("interview checklist", "behavioral interview", "sample interview questions", "know yourself"),
-    "student_organizations": ("student organizations", "find your fit", "explore student organizations", "student organization"),
+    "student_organizations": (
+        "student organizations",
+        "find your fit",
+        "explore student organizations",
+        "student organization",
+        "recruiting information",
+        "eligible applicants",
+        "relevant industries",
+        "time commitment",
+    ),
     "career_resources": ("undergraduate career services", "career coaching", "resume", "interview preparation", "recruiting"),
 }
 
@@ -182,6 +202,10 @@ INTENT_ALLOWED_URLS: dict[str, set[str]] = {
         "https://kelley.iu.edu/undergraduate/advising/index.html",
         "https://kelley.iu.edu/undergraduate/advising/contact-us/index.html",
     },
+}
+
+INTENT_SOURCE_DOCUMENTS: dict[str, set[str]] = {
+    "student_organizations": {"Kelley Student Organization Handbook.pdf"},
 }
 
 INTENT_SOURCE_PAGES: dict[str, set[tuple[str, int]]] = {
@@ -240,6 +264,69 @@ INTENT_SOURCE_PAGES: dict[str, set[tuple[str, int]]] = {
 }
 
 
+ORG_TOPIC_TERMS = {
+    "accounting",
+    "advertising",
+    "analytics",
+    "consulting",
+    "data",
+    "entrepreneurship",
+    "finance",
+    "fintech",
+    "fraternity",
+    "government",
+    "healthcare",
+    "honor",
+    "investing",
+    "investment",
+    "law",
+    "marketing",
+    "sales",
+    "sports",
+    "supply",
+    "technology",
+}
+
+
+def organization_query_topics(question: str) -> set[str]:
+    topics = {term for term in tokenize(question) if term in ORG_TOPIC_TERMS}
+    lowered = question.lower()
+    if "ai" in lowered:
+        topics.add("ai")
+    if "gen ai" in lowered:
+        topics.add("gen")
+    return topics
+
+
+def organization_topic_overlap(question: str, match: dict[str, Any]) -> int:
+    text = normalize_text(f"{match.get('section') or ''} {match.get('text') or ''}")
+    page = match.get("page") or 0
+    if "gen ai club" in question.lower():
+        return 5 if "gen ai club" in text else 0
+    if "student government" in question.lower() or "ksg" in question.lower():
+        return 5 if "kelley student government" in text or "ksg" in text else 0
+    if match.get("document") == "Kelley Student Organization Handbook.pdf":
+        topics = organization_query_topics(question)
+        if "consulting" in topics:
+            return 5 if 7 <= page <= 18 else 0
+        if topics & {"finance", "investing", "investment", "fintech"}:
+            return 5 if 42 <= page <= 64 or page == 17 else 0
+        if topics & {"technology", "data", "analytics", "ai"}:
+            return 5 if 83 <= page <= 88 else 0
+        if topics & {"marketing", "advertising", "sales"}:
+            return 5 if 80 <= page <= 81 else 0
+        if topics & {"law"}:
+            return 5 if 76 <= page <= 78 else 0
+        if topics & {"healthcare"}:
+            return 5 if 66 <= page <= 74 else 0
+        if topics & {"fraternity", "honor"}:
+            return 5 if 90 <= page <= 100 else 0
+    topics = organization_query_topics(question)
+    if not topics:
+        return 0
+    return len(topics & tokenize(text))
+
+
 def expanded_terms(question: str) -> set[str]:
     terms = tokenize(question)
     intent = classify_intent(question)
@@ -289,6 +376,23 @@ def lexical_search(question: str, limit: int = 8) -> list[dict[str, Any]]:
             chunk["url"].startswith(prefix) for prefix in INTENT_WEB_PREFIXES.get(intent, ())
         ):
             score += 0.85
+        if intent == "student_organizations":
+            section_text = normalize_text(chunk.get("section") or "")
+            candidate_text = f"{section_text} {chunk_text}"
+            query_topics = organization_query_topics(question)
+            if chunk.get("document") == "Kelley Student Organization Handbook.pdf":
+                score += 0.45
+                if query_topics:
+                    topic_overlap = organization_topic_overlap(question, chunk)
+                    score += topic_overlap * 1.25
+                    if topic_overlap == 0:
+                        score -= 1.1
+                if "gen ai club" in question.lower() and "gen ai club" in candidate_text:
+                    score += 3.0
+                if "student government" in question.lower() and "kelley student government" in candidate_text:
+                    score += 2.0
+            elif query_topics:
+                score -= 0.45
         if intent == "consulting_start" and chunk["document"] == "The Kelley Playbook - Google Docs.pdf" and chunk["page"] in {17, 18}:
             score += 0.35
         if intent == "major_resources" and chunk["document"] == "Kelley-Career-Guide.pdf" and chunk["page"] == 7:
@@ -364,15 +468,28 @@ def relevant_matches(question: str, matches: list[dict[str, Any]]) -> list[dict[
     if intent == "drop_class":
         return []
     exact_urls = INTENT_ALLOWED_URLS.get(intent or "", set())
+    allowed_documents = INTENT_SOURCE_DOCUMENTS.get(intent or "", set())
     if not intent or intent not in INTENT_SOURCE_PAGES:
         if intent in INTENT_WEB_PREFIXES:
             prefixes = INTENT_WEB_PREFIXES[intent]
             filtered = [
                 m
                 for m in matches
-                if m.get("url")
-                and ((not exact_urls and any(m["url"].startswith(prefix) for prefix in prefixes)) or m["url"] in exact_urls)
+                if (
+                    m.get("url")
+                    and ((not exact_urls and any(m["url"].startswith(prefix) for prefix in prefixes)) or m["url"] in exact_urls)
+                )
+                or m.get("document") in allowed_documents
             ]
+            if intent == "student_organizations" and organization_query_topics(question):
+                topic_filtered = [
+                    m
+                    for m in filtered
+                    if m.get("document") == "Kelley Student Organization Handbook.pdf"
+                    and organization_topic_overlap(question, m) > 0
+                ]
+                if topic_filtered:
+                    return sorted(topic_filtered, key=lambda item: organization_topic_overlap(question, item), reverse=True)
             return filtered or matches
         return matches
     allowed = INTENT_SOURCE_PAGES.get(intent, set())
@@ -385,6 +502,7 @@ def relevant_matches(question: str, matches: list[dict[str, Any]]) -> list[dict[
             and ((not exact_urls and any(m["url"].startswith(prefix) for prefix in prefixes)) or m["url"] in exact_urls)
         )
         or (m["document"], m.get("page")) in allowed
+        or m.get("document") in allowed_documents
     ]
     return filtered or matches
 
@@ -461,6 +579,22 @@ def ollama_answer(question: str, matches: list[dict[str, Any]]) -> str | None:
 
 def strip_inline_resources(answer: str) -> str:
     return re.sub(r"\n+Recommended Kelley resources\n+.*\Z", "", answer.strip(), flags=re.IGNORECASE | re.DOTALL).strip()
+
+
+def trim_summary(text: str, limit: int = 340) -> str:
+    text = re.sub(r"\s+", " ", text).strip(" .")
+    if len(text) <= limit:
+        return text
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    summary = ""
+    for sentence in sentences:
+        candidate = f"{summary} {sentence}".strip()
+        if len(candidate) > limit:
+            break
+        summary = candidate
+    if summary:
+        return summary.strip(" .")
+    return text[:limit].rsplit(" ", 1)[0].strip(" .")
 
 
 def fallback_answer(question: str, matches: list[dict[str, Any]]) -> str:
@@ -576,6 +710,35 @@ def fallback_answer(question: str, matches: list[dict[str, Any]]) -> str:
         )
 
     if intent == "student_organizations":
+        handbook_matches = [m for m in matches if m.get("document") == "Kelley Student Organization Handbook.pdf"]
+        if handbook_matches:
+            lines = []
+            for match in handbook_matches[:4]:
+                text = re.sub(r"\s+", " ", match["text"]).strip()
+                section_name = (match.get("section") or "").strip()
+                if " Description " in section_name:
+                    name = section_name.split(" Description ", 1)[0].strip()
+                else:
+                    name = text.split(" Description ", 1)[0].strip()
+                if not name or name.lower().startswith("relevant industries") or name.lower().startswith("it is best"):
+                    name = text.split(" Description ", 1)[0].strip()
+                name = name[:90].strip()
+                detail = text
+                for marker in ("Description ", "It is best suited for ", "Relevant Industries "):
+                    if marker in text:
+                        detail = text.split(marker, 1)[1]
+                        break
+                detail = re.split(r" Recruiting Information | Time Commitment & Eligibility | Relevant Industries ", detail)[0]
+                detail = trim_summary(detail)
+                if name and detail:
+                    lines.append(f"{len(lines) + 1:02d} {name}\n{detail}.")
+            if lines:
+                return (
+                    "Here are Kelley student organization options supported by the Student Organization Handbook.\n\n"
+                    + "\n\n".join(lines)
+                    + "\n\nRecommended Kelley resources\n"
+                    "Review the cited handbook pages and the Kelley student organizations resource links shown with this answer."
+                )
         return (
             "Here is a good starting point from the Kelley website.\n\n"
             "01 Explore Kelley student organizations\n"

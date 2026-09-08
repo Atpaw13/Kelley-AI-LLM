@@ -6,6 +6,7 @@ The prototype currently expects documents such as:
 
 - `Kelley-Career-Guide.pdf`
 - `The Kelley Playbook - Google Docs.pdf`
+- `Kelley Student Organization Handbook.pdf`
 
 PDFs are intentionally ignored by Git so the repository can stay lightweight and avoid committing source documents that may need separate approval. After adding or replacing PDFs, run:
 
