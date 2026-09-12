@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import json
@@ -29,6 +30,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "https://kelley-ai-llm.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
