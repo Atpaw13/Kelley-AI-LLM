@@ -48,7 +48,25 @@ def chunk_page(text: str, size: int = 950, overlap: int = 160) -> list[str]:
     return chunks
 
 
-def extract_page_links(page) -> list[dict[str, str]]:
+def extract_text_links(text: str) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw_url in re.findall(r"https?://[^\s)>\]]+", text):
+        url = raw_url.rstrip(".,;:")
+        if url in seen:
+            continue
+        links.append({"label": url[:120], "url": url})
+        seen.add(url)
+    for email in re.findall(r"(?<![\w.-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", text):
+        url = f"mailto:{email}"
+        if url in seen:
+            continue
+        links.append({"label": email[:120], "url": url})
+        seen.add(url)
+    return links[:12]
+
+
+def extract_page_links(page, text: str) -> list[dict[str, str]]:
     links: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in getattr(page, "hyperlinks", []) or []:
@@ -64,6 +82,11 @@ def extract_page_links(page) -> list[dict[str, str]]:
             continue
         links.append({"label": uri[:120], "url": uri})
         seen.add(uri)
+    for item in extract_text_links(text):
+        if item["url"] in seen:
+            continue
+        links.append(item)
+        seen.add(item["url"])
     return links[:12]
 
 
@@ -90,7 +113,7 @@ def extract_chunks(pdf_path: Path) -> list[dict]:
             if page_index <= 3 and "table of contents" in text.lower():
                 continue
             section = infer_section(text)
-            links = extract_page_links(page)
+            links = extract_page_links(page, text)
             for chunk_index, chunk in enumerate(chunk_page(text), start=1):
                 chunks.append(
                     {

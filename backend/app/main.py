@@ -68,6 +68,14 @@ class AskResponse(BaseModel):
     recommended_resources: list[RecommendedResource] = []
 
 
+HANDBOOK_DOCUMENT = "Kelley Student Organization Handbook.pdf"
+KNOWN_UNRESOLVED_ORG_URLS = {
+    "https://www.tamidatindiana.com/",
+    "https://cmciu.com/index.html",
+    "https://beinvolved.indiana.edu/organization/passiveincome",
+}
+
+
 STOPWORDS = {
     "about",
     "and",
@@ -298,33 +306,180 @@ def organization_query_topics(question: str) -> set[str]:
     return topics
 
 
+def detected_interest_labels(question: str) -> list[str]:
+    q = normalize_text(question)
+    labels: list[str] = []
+    checks = [
+        ("Freshman", r"\bfreshman\b|\bfirst[- ]year\b"),
+        ("Finance", r"\bfinance\b|\binvesting\b|\binvestment\b|\bbanking\b"),
+        ("Consulting", r"\bconsulting\b|\bconsultant\b"),
+        ("Entrepreneurship", r"\bentrepreneur\w*\b|\bstartup\b|\bventure\b|\binnovation\b"),
+        ("Technology", r"\btechnology\b|\btech\b|\bai\b|\bdata\b|\banalytics\b|\bsoftware\b"),
+        ("Marketing", r"\bmarketing\b|\badvertising\b|\bsales\b"),
+        ("Music", r"\bmusic\b"),
+        ("Sports", r"\bsports\b|\bgolf\b"),
+        ("Sustainability", r"\bsustainability\b|\bsustainable\b|\bsocial impact\b"),
+        ("Accounting", r"\baccounting\b|\baudit\b|\btax\b"),
+        ("Volunteering", r"\bvolunteer\b|\bservice\b|\bcommunity\b|\bphilanthropy\b"),
+        ("Building / Creativity", r"\blego\b|\blegos\b|\bbuild\b|\bbuilding\b|\bmake\b|\bmaking\b|\bcreate\b|\bcreating\b|\bcreative\b|\bcreativity\b|\bdesign\b|\bhands[- ]on\b"),
+    ]
+    for label, pattern in checks:
+        if re.search(pattern, q):
+            labels.append(label)
+    return labels or ["Student Organizations"]
+
+
 def organization_topic_overlap(question: str, match: dict[str, Any]) -> int:
     text = normalize_text(f"{match.get('section') or ''} {match.get('text') or ''}")
-    page = match.get("page") or 0
     if "gen ai club" in question.lower():
         return 5 if "gen ai club" in text else 0
     if "student government" in question.lower() or "ksg" in question.lower():
         return 5 if "kelley student government" in text or "ksg" in text else 0
     if match.get("document") == "Kelley Student Organization Handbook.pdf":
-        topics = organization_query_topics(question)
-        if "consulting" in topics:
-            return 5 if 7 <= page <= 18 else 0
-        if topics & {"finance", "investing", "investment", "fintech"}:
-            return 5 if 42 <= page <= 64 or page == 17 else 0
-        if topics & {"technology", "data", "analytics", "ai"}:
-            return 5 if 83 <= page <= 88 else 0
-        if topics & {"marketing", "advertising", "sales"}:
-            return 5 if 80 <= page <= 81 else 0
-        if topics & {"law"}:
-            return 5 if 76 <= page <= 78 else 0
-        if topics & {"healthcare"}:
-            return 5 if 66 <= page <= 74 else 0
-        if topics & {"fraternity", "honor"}:
-            return 5 if 90 <= page <= 100 else 0
+        return len(organization_interest_hits(question, match)) * 5
     topics = organization_query_topics(question)
     if not topics:
         return 0
     return len(topics & tokenize(text))
+
+
+def handbook_chunks() -> list[dict[str, Any]]:
+    return [chunk for chunk in load_chunks() if chunk.get("document") == HANDBOOK_DOCUMENT]
+
+
+def organization_name(match: dict[str, Any]) -> str:
+    text = re.sub(r"\s+", " ", match.get("text", "")).strip()
+    section = (match.get("section") or "").strip()
+    if " Description " in section:
+        name = section.split(" Description ", 1)[0]
+    elif " Description " in text:
+        name = text.split(" Description ", 1)[0]
+    else:
+        name = section or text.split(" Relevant Industries ", 1)[0]
+    name = re.sub(r"\blicnuoC\s+\S+\s*", "", name)
+    name = re.sub(r"\blicnuoC\s+ytinretarF\s+lanoisseforP\s*", "", name)
+    name = re.sub(r"\blanoisseforP\b|\bevitceleS\b|\bnepO\b", "", name)
+    return re.sub(r"\s+", " ", name).strip(" .")[:100]
+
+
+def organization_description(match: dict[str, Any]) -> str:
+    text = re.sub(r"\s+", " ", match.get("text", "")).strip()
+    text = re.sub(r"\bevitceleS\b|\bnepO\b|\blicnuoC\s+\S+\b", "", text)
+    if " Description " in text:
+        text = text.split(" Description ", 1)[1]
+    text = re.split(r" Relevant Industries | Recruiting Information | Time Commitment & Eligibility | Contact Information / Website ", text)[0]
+    return trim_summary(text, limit=360)
+
+
+def organization_link(match: dict[str, Any]) -> str | None:
+    for link in match.get("links", []) or []:
+        url = link.get("url", "")
+        if url in KNOWN_UNRESOLVED_ORG_URLS:
+            continue
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+    return None
+
+
+def organization_interest_hits(question: str, match: dict[str, Any]) -> set[str]:
+    q = normalize_text(question)
+    text = normalize_text(f"{match.get('section') or ''} {match.get('text') or ''}")
+    page = match.get("page") or 0
+    hits: set[str] = set()
+    if re.search(r"\bfreshman\b|\bfirst[- ]year\b", q) and "eligible applicants: freshmen" in text:
+        hits.add("freshman")
+    if re.search(r"\bfinance\b|\binvesting\b|\binvestment\b|\bbanking\b", q):
+        if 42 <= page <= 64 or page == 17:
+            hits.add("finance")
+    if re.search(r"\bconsulting\b|\bconsultant\b", q):
+        if 7 <= page <= 18 or "consulting" in text:
+            hits.add("consulting")
+    if re.search(r"\bentrepreneur\w*\b|\bstartup\b|\bventure\b|\binnovation\b", q):
+        if re.search(r"\bentrepreneur\w*\b|\bstartup\w*\b|\bventure\b|\binnovation\b|\bbusiness development\b|\bgenerate and preserve income\b", text):
+            hits.add("entrepreneurship")
+    if re.search(r"\blego\b|\blegos\b|\bbuild\b|\bbuilding\b|\bmake\b|\bmaking\b|\bcreate\b|\bcreating\b|\bcreative\b|\bcreativity\b|\bdesign\b|\bhands[- ]on\b", q):
+        if re.search(r"\bhands[- ]on\b|\bbuild\w*\b|\bcreat\w*\b|\bcreative\b|\bdesign\b|\binnovation\b|\bai\b|\btechnology\b|\bdata\b|\bsoftware\b|\bhardware\b|\bproject\w*\b|\bcase competition\b", text):
+            hits.add("building_creativity")
+    if re.search(r"\btechnology\b|\btech\b|\bai\b|\bdata\b|\banalytics\b|\bsoftware\b", q):
+        if 83 <= page <= 88 or page == 48 or re.search(r"\btechnology\b|\btech\b|\bai\b|\bdata\b|\banalytics\b|\bsoftware\b|\bcoding\b", text):
+            hits.add("technology")
+    if re.search(r"\bmarketing\b|\badvertising\b", q):
+        if 80 <= page <= 81 or re.search(r"\bmarketing\b|\badvertising\b|\bbrand strategy\b|\bcreative development\b", text):
+            hits.add("marketing")
+    if re.search(r"\bsales\b", q):
+        if 80 <= page <= 81 or re.search(r"\bsales\b|\bmarketing\b|\badvertising\b", text):
+            hits.add("marketing")
+    if "music" in q and "music" in text:
+        hits.add("music")
+    if re.search(r"\bsports\b|\bgolf\b", q) and re.search(r"\bsports\b|\bgolf\b", text):
+        hits.add("sports")
+    if re.search(r"\bsustainability\b|\bsustainable\b|\bsocial impact\b", q):
+        if re.search(r"\bsustainab\w*\b|\bsocial impact\b|\bsocially responsible\b|\bnonprofits?\b|\bmission[- ]driven\b", text):
+            hits.add("sustainability")
+    if re.search(r"\baccounting\b|\baudit\b|\btax\b", q) and "accounting" in text:
+        hits.add("accounting")
+    if re.search(r"\bvolunteer\b|\bservice\b|\bphilanthropy\b|\boutside business\b", q):
+        if re.search(r"\bservice\b|\bphilanthropy\b|\bnonprofits?\b|\bsocial impact\b|\bmission[- ]driven\b|\bsocially responsible\b|\bhealthcare\b|\bmental health\b|\bsustainable\b", text):
+            hits.add("volunteering")
+    return hits
+
+
+def organization_recommendation_matches(question: str, limit: int = 5) -> list[dict[str, Any]]:
+    scored: list[tuple[float, dict[str, Any], set[str]]] = []
+    labels = detected_interest_labels(question)
+    for chunk in handbook_chunks():
+        if (chunk.get("page") or 0) < 7:
+            continue
+        if " Description " not in chunk.get("text", ""):
+            continue
+        if organization_name(chunk).lower().startswith("table of contents"):
+            continue
+        hits = organization_interest_hits(question, chunk)
+        lowered_question = question.lower()
+        if re.search(r"\bfinance\b|\binvesting\b|\binvestment\b|\bbanking\b", lowered_question) and "finance" not in hits:
+            continue
+        if re.search(r"\bconsulting\b|\bconsultant\b", lowered_question) and "consulting" not in hits:
+            continue
+        if re.search(r"\bmarketing\b|\badvertising\b|\bsales\b", lowered_question) and "marketing" not in hits:
+            continue
+        if not hits and "Student Organizations" not in labels:
+            continue
+        score = float(len(hits) * 2)
+        if "freshman" in hits:
+            score += 0.8
+        if {"finance", "building_creativity"} <= hits:
+            score += 2.2
+        if {"finance", "entrepreneurship"} <= hits:
+            score += 2.0
+        if {"technology", "entrepreneurship"} <= hits:
+            score += 1.8
+        if {"marketing", "music"} <= hits or {"marketing", "building_creativity"} <= hits:
+            score += 2.4
+        if "marketing" in hits and (chunk.get("page") or 0) in {80, 81}:
+            score += 3.0
+        if {"consulting", "sports"} <= hits or {"consulting", "volunteering"} <= hits:
+            score += 1.6
+        if "lego" in question.lower() or "legos" in question.lower():
+            text = normalize_text(chunk.get("text", ""))
+            if re.search(r"\bentrepreneur\w*\b|\bstartup\w*\b|\bai\b|\btechnology\b|\bdata\b|\bhands[- ]on\b|\bcreate\b|\bbuild\b", text):
+                score += 0.9
+        if score > 0:
+            item = dict(chunk)
+            item["score"] = score
+            item["interest_hits"] = sorted(hits)
+            scored.append((score, item, hits))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for _, item, _ in scored:
+        name = organization_name(item).lower()
+        if not name or name in seen:
+            continue
+        deduped.append(item)
+        seen.add(name)
+        if len(deduped) >= limit:
+            break
+    return deduped
 
 
 def expanded_terms(question: str) -> set[str]:
@@ -438,9 +593,11 @@ def chroma_search(question: str, limit: int = 8) -> list[dict[str, Any]]:
     metadatas = result.get("metadatas", [[]])[0]
     ids = result.get("ids", [[]])[0]
     distances = result.get("distances", [[]])[0]
+    source_chunks = {chunk["id"]: chunk for chunk in load_chunks()}
     matches = []
     for idx, text in enumerate(documents):
         meta = metadatas[idx] or {}
+        source_chunk = source_chunks.get(ids[idx], {})
         matches.append(
             {
                 "id": ids[idx],
@@ -451,7 +608,8 @@ def chroma_search(question: str, limit: int = 8) -> list[dict[str, Any]]:
                 "source_type": meta.get("source_type") or "Kelley Document",
                 "url": meta.get("url") or None,
                 "title": meta.get("title") or None,
-                "links": [],
+                "links": source_chunk.get("links", []),
+                "priority": source_chunk.get("priority", meta.get("priority", 3)),
                 "score": 1 / (1 + float(distances[idx])) if idx < len(distances) else None,
             }
         )
@@ -489,7 +647,11 @@ def relevant_matches(question: str, matches: list[dict[str, Any]]) -> list[dict[
                     and organization_topic_overlap(question, m) > 0
                 ]
                 if topic_filtered:
-                    return sorted(topic_filtered, key=lambda item: organization_topic_overlap(question, item), reverse=True)
+                    return sorted(
+                        topic_filtered,
+                        key=lambda item: (organization_topic_overlap(question, item), item.get("score") or 0),
+                        reverse=True,
+                    )
             return filtered or matches
         return matches
     allowed = INTENT_SOURCE_PAGES.get(intent, set())
@@ -595,6 +757,76 @@ def trim_summary(text: str, limit: int = 340) -> str:
     if summary:
         return summary.strip(" .")
     return text[:limit].rsplit(" ", 1)[0].strip(" .")
+
+
+def organization_fit_sentence(question: str, match: dict[str, Any]) -> str:
+    hits = set(match.get("interest_hits") or organization_interest_hits(question, match))
+    description = organization_description(match)
+    if {"finance", "building_creativity"} <= hits:
+        return f"Good fit for finance plus building/creating because the source describes {description[0].lower() + description[1:] if description else 'hands-on finance-related work'}."
+    if {"finance", "entrepreneurship"} <= hits:
+        return f"Good fit for finance and entrepreneurship because the source connects the organization to {description[0].lower() + description[1:] if description else 'venture or income-building interests'}."
+    if {"technology", "entrepreneurship"} <= hits:
+        return f"Good fit for technology and entrepreneurship because the source describes {description[0].lower() + description[1:] if description else 'technology-focused building and innovation'}."
+    if {"marketing", "music"} <= hits:
+        return f"Good fit for marketing and music because the source describes {description[0].lower() + description[1:] if description else 'the business side of music'}."
+    if {"marketing", "building_creativity"} <= hits:
+        return f"Good fit for marketing and creativity because the source describes {description[0].lower() + description[1:] if description else 'creative project work'}."
+    if {"consulting", "volunteering"} <= hits:
+        return f"Good fit for consulting beyond business because the source describes {description[0].lower() + description[1:] if description else 'mission-driven or community-oriented consulting'}."
+    if {"consulting", "sports"} <= hits:
+        return f"Good fit for consulting and sports because the source describes {description[0].lower() + description[1:] if description else 'business work connected to sports'}."
+    if description:
+        return f"Why it fits: {description}."
+    return "Why it fits: this organization matched interests found in the indexed Kelley Student Organization Handbook."
+
+
+def markdown_link(label: str, url: str | None) -> str:
+    if not url:
+        return ""
+    return f"[{label}]({url})"
+
+
+def organization_answer(question: str, matches: list[dict[str, Any]]) -> str | None:
+    handbook_matches = [m for m in matches if m.get("document") == HANDBOOK_DOCUMENT]
+    if not handbook_matches:
+        return None
+    labels = detected_interest_labels(question)
+    interest_line = " · ".join(labels)
+    lego_note = ""
+    if re.search(r"\blego\b|\blegos\b", question.lower()):
+        lego_note = (
+            "\n\nA NOTE ON LEGO\n"
+            "I couldn't verify a LEGO-specific organization in the Kelley information currently available to this prototype, "
+            "but there are several verified organizations that may fit the broader combination of finance, building, creativity, innovation, or technology."
+        )
+    recommendation_blocks = []
+    for index, match in enumerate(handbook_matches[:5], start=1):
+        name = organization_name(match)
+        if not name:
+            continue
+        url = organization_link(match)
+        link_line = markdown_link("View organization →", url)
+        block = f"{index}. {name}\n{organization_fit_sentence(question, match)}"
+        if link_line:
+            block += f"\n{link_line}"
+        recommendation_blocks.append(block)
+    if not recommendation_blocks:
+        return None
+    resource_link = markdown_link(
+        "Explore Kelley student organizations →",
+        "https://kelley.iu.edu/undergraduate/student-life/student-organizations/index.html",
+    )
+    return (
+        f"YOUR INTERESTS\n{interest_line}"
+        f"{lego_note}\n\n"
+        "RECOMMENDED ORGANIZATIONS\n\n"
+        + "\n\n".join(recommendation_blocks)
+        + "\n\nWHY THESE FIT\n"
+        "These recommendations are drawn from indexed Kelley/IU organization sources and prioritize overlap across the interests in your question, rather than matching on one keyword alone.\n\n"
+        "KELLEY RESOURCES\n"
+        f"{resource_link}"
+    )
 
 
 def fallback_answer(question: str, matches: list[dict[str, Any]]) -> str:
@@ -710,35 +942,9 @@ def fallback_answer(question: str, matches: list[dict[str, Any]]) -> str:
         )
 
     if intent == "student_organizations":
-        handbook_matches = [m for m in matches if m.get("document") == "Kelley Student Organization Handbook.pdf"]
-        if handbook_matches:
-            lines = []
-            for match in handbook_matches[:4]:
-                text = re.sub(r"\s+", " ", match["text"]).strip()
-                section_name = (match.get("section") or "").strip()
-                if " Description " in section_name:
-                    name = section_name.split(" Description ", 1)[0].strip()
-                else:
-                    name = text.split(" Description ", 1)[0].strip()
-                if not name or name.lower().startswith("relevant industries") or name.lower().startswith("it is best"):
-                    name = text.split(" Description ", 1)[0].strip()
-                name = name[:90].strip()
-                detail = text
-                for marker in ("Description ", "It is best suited for ", "Relevant Industries "):
-                    if marker in text:
-                        detail = text.split(marker, 1)[1]
-                        break
-                detail = re.split(r" Recruiting Information | Time Commitment & Eligibility | Relevant Industries ", detail)[0]
-                detail = trim_summary(detail)
-                if name and detail:
-                    lines.append(f"{len(lines) + 1:02d} {name}\n{detail}.")
-            if lines:
-                return (
-                    "Here are Kelley student organization options supported by the Student Organization Handbook.\n\n"
-                    + "\n\n".join(lines)
-                    + "\n\nRecommended Kelley resources\n"
-                    "Review the cited handbook pages and the Kelley student organizations resource links shown with this answer."
-                )
+        org_answer = organization_answer(question, matches)
+        if org_answer:
+            return org_answer
         return (
             "Here is a good starting point from the Kelley website.\n\n"
             "01 Explore Kelley student organizations\n"
@@ -907,13 +1113,20 @@ def ask(payload: AskRequest) -> AskResponse:
     question = payload.question.strip()
     matches = chroma_search(question)
     matches = relevant_matches(question, matches)
+    visible_basis = matches
+    if classify_intent(question) == "student_organizations":
+        org_matches = organization_recommendation_matches(question, limit=5)
+        if org_matches:
+            org_matches = relevant_matches(question, org_matches) or org_matches
+            matches = org_matches
+            visible_basis = org_matches
     adequate = context_is_adequate(question, matches)
     answer = ollama_answer(question, matches) if adequate else None
     if answer is None:
         answer = fallback_answer(question, matches)
     answer = strip_inline_resources(answer)
 
-    visible_matches = group_source_matches(matches, limit=5) if adequate else []
+    visible_matches = group_source_matches(visible_basis, limit=5) if adequate else []
     sources = [
         Source(
             id=m["id"],

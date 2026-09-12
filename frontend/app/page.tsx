@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, ChevronDown, ChevronUp, ExternalLink, FileText, Loader2, Search, ShieldCheck } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type Source = {
   id: string;
@@ -78,6 +78,41 @@ function formatAnswer(answer: string) {
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function isExternalUrl(url: string) {
+  return /^https?:\/\//i.test(url) || /^mailto:/i.test(url);
+}
+
+function renderMarkdownLinks(line: string) {
+  const parts: ReactNode[] = [];
+  const pattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(line.slice(lastIndex, match.index));
+    }
+    const label = match[1];
+    const url = match[2];
+    const external = isExternalUrl(url);
+    parts.push(
+      <a
+        key={`${url}-${match.index}`}
+        href={url}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noreferrer" : undefined}
+        className="font-bold-iu inline-flex items-center gap-1 text-crimson underline decoration-crimson/35 underline-offset-4 transition hover:text-[#7d0000]"
+      >
+        {label}
+      </a>
+    );
+    lastIndex = pattern.lastIndex;
+  }
+  if (lastIndex < line.length) {
+    parts.push(line.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : line;
 }
 
 function formatDocumentName(document: string) {
@@ -344,27 +379,28 @@ export default function Home() {
                 <div className="mt-5 space-y-5 text-[17px] leading-8 text-black/76">
                   {answerLines.map((line, index) => {
                     const numbered = /^\d{2}\s/.test(line);
-                    const heading = /recommended kelley resources/i.test(line);
+                    const decimalNumbered = /^\d+\.\s/.test(line);
+                    const heading = /^(recommended kelley resources|your interests|a note on lego|recommended organizations|why these fit|kelley resources)$/i.test(line);
                     if (heading) {
                       return (
                         <h4 key={`${line}-${index}`} className="font-bold-iu border-t border-black/10 pt-6 text-xl text-ink">
-                          Recommended Kelley Resources
+                          {line}
                         </h4>
                       );
                     }
-                    if (numbered) {
-                      const number = line.slice(0, 2);
-                      const text = line.slice(3);
+                    if (numbered || decimalNumbered) {
+                      const number = numbered ? line.slice(0, 2) : line.match(/^\d+/)?.[0] ?? "";
+                      const text = numbered ? line.slice(3) : line.replace(/^\d+\.\s*/, "");
                       return (
                         <div key={`${line}-${index}`} className="grid grid-cols-[42px_1fr] gap-4 border-l-4 border-crimson bg-limestone px-4 py-4">
                           <span className="font-mono-iu text-sm text-crimson">{number}</span>
-                          <p className="font-bold-iu text-ink">{text}</p>
+                          <p className="font-bold-iu text-ink">{renderMarkdownLinks(text)}</p>
                         </div>
                       );
                     }
                     return (
                       <p key={`${line}-${index}`}>
-                        {line}
+                        {renderMarkdownLinks(line)}
                       </p>
                     );
                   })}

@@ -34,7 +34,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # Generated retrieval data and temporary crawl output
-data/generated/
+data/generated/*
+!data/generated/
+!data/generated/chunks.jsonl
+!data/generated/web_chunks.jsonl
 data/chroma/
 data/tmp/
 data/scraped/
