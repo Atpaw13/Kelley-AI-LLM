@@ -129,6 +129,10 @@ def classify_intent(question: str) -> str | None:
         or "ksg" in q
     ):
         return "student_organizations"
+    if re.search(r"\bfinance\b|\binvesting\b|\binvestment\b|\bbanking\b", q) and re.search(
+        r"\bexplore\b|\binterested\b|\blook at\b|\bfit\b", q
+    ):
+        return "student_organizations"
     if "undergraduate career services" in q or "career resources" in q or "career coaching" in q:
         return "career_resources"
     if "consulting" in q:
@@ -573,13 +577,16 @@ def lexical_search(question: str, limit: int = 8) -> list[dict[str, Any]]:
 
 
 def chroma_search(question: str, limit: int = 8) -> list[dict[str, Any]]:
+    if os.getenv("KELLEY_USE_CHROMA", "false").lower() not in {"1", "true", "yes"}:
+        return lexical_search(question, limit)
+
+    if not CHROMA_PATH.exists():
+        return lexical_search(question, limit)
+
     try:
         import chromadb
         from sentence_transformers import SentenceTransformer
     except Exception:
-        return lexical_search(question, limit)
-
-    if not CHROMA_PATH.exists():
         return lexical_search(question, limit)
 
     try:

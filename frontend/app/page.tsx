@@ -1,6 +1,19 @@
 "use client";
 
-import { ArrowRight, ChevronDown, ChevronUp, ExternalLink, FileText, Loader2, Search, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  BriefcaseBusiness,
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  FileText,
+  GraduationCap,
+  Loader2,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type Source = {
@@ -38,10 +51,17 @@ const suggestedQuestions = [
   "How do I schedule an academic advising appointment?",
   "How should I prepare for a career fair?",
   "What resources can help me improve my resume?",
-  "I'm interested in finance. What should I explore?",
+  "I'm a freshman interested in finance. What clubs should I look at?",
 ];
 
-const categories = ["Academics", "Careers", "Involvement", "Recruiting", "I-Core", "Resources"];
+const categories = [
+  { label: "Academics", icon: GraduationCap },
+  { label: "Careers", icon: BriefcaseBusiness },
+  { label: "Involvement", icon: Building2 },
+  { label: "Recruiting", icon: BookOpen },
+  { label: "I-Core", icon: ShieldCheck },
+  { label: "Resources", icon: FileText },
+];
 const featuredResources = [
   {
     title: "Undergraduate Career Services",
@@ -62,7 +82,7 @@ const featuredResources = [
 
 function TridentMark() {
   return (
-    <div className="grid h-14 w-14 place-items-center bg-crimson text-white" aria-label="Indiana University trident">
+    <div className="grid h-14 w-14 place-items-center bg-crimson text-white shadow-[0_10px_24px_rgba(153,0,0,0.18)]" aria-label="Indiana University trident">
       <svg className="h-8 w-8" viewBox="0 0 28 34" aria-hidden="true">
         <path
           d="M-3.34344e-05 4.70897H8.83308V7.174H7.1897V21.1426H10.6134V2.72321H8.83308V0.121224H18.214V2.65476H16.2283V21.1426H19.7889V7.174H18.214V4.64047H27.0471V7.174H25.0614V23.6761L21.7746 26.8944H16.2967V30.455H18.214V33.8787H8.76463V30.592H10.6819V26.8259H5.20403L1.91726 23.6077V7.174H-3.34344e-05V4.70897Z"
@@ -71,6 +91,11 @@ function TridentMark() {
       </svg>
     </div>
   );
+}
+
+function StatusDot({ tone = "ready" }: { tone?: "ready" | "working" | "caution" }) {
+  const color = tone === "working" ? "bg-[#006298]" : tone === "caution" ? "bg-[#f1be48]" : "bg-[#00843d]";
+  return <span className={`h-2.5 w-2.5 rounded-full ${color}`} aria-hidden="true" />;
 }
 
 function formatAnswer(answer: string) {
@@ -225,45 +250,40 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-[#f7f5f2] text-ink">
       <header className="border-b border-black/10 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
           <div className="flex items-center gap-4">
             <TridentMark />
             <div className="leading-tight">
-              <p className="font-bold-iu text-xl text-ink">Kelley School of Business</p>
-              <p className="text-sm text-black/62">Indiana University</p>
+              <p className="font-bold-iu text-[22px] text-ink">Kelley School of Business</p>
+              <p className="text-sm text-black/60">Indiana University</p>
             </div>
-          </div>
-          <div className="hidden items-center gap-2 border border-crimson/25 bg-crimson/5 px-3 py-2 text-sm font-bold text-crimson sm:flex">
-            <ShieldCheck className="h-4 w-4" />
-            AI Resource Prototype
           </div>
         </div>
         <nav className="bg-ink text-white" aria-label="Prototype section navigation">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 overflow-x-auto px-5">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 overflow-x-auto px-5">
             <div className="flex min-h-12 items-center gap-7 text-sm font-bold">
               {["Undergraduate", "Academics", "Careers", "Student Life", "Resources"].map((item) => (
-                <span key={item} className="whitespace-nowrap">{item}</span>
+                <span key={item} className="whitespace-nowrap text-white/92">{item}</span>
               ))}
             </div>
-            <span className="font-mono-iu hidden whitespace-nowrap text-xs uppercase text-white/70 md:block">Limited demo</span>
+            <span className="hidden whitespace-nowrap text-sm font-bold text-white/80 md:block">Student resources</span>
           </div>
         </nav>
       </header>
 
-      <section className="border-b border-black/10 bg-limestone">
-        <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 lg:grid-cols-[1fr_320px] lg:py-12">
+      <section className="border-b border-black/10 bg-[linear-gradient(180deg,#ffffff_0%,#f7f5f2_100%)]">
+        <div className="mx-auto grid max-w-7xl gap-9 px-5 py-11 lg:grid-cols-[minmax(0,1fr)_370px] lg:py-14">
           <div>
-          <p className="font-mono-iu mb-4 text-xs uppercase text-crimson">Kelley AI Resource Prototype</p>
-          <h2 className="font-bold-iu max-w-3xl text-3xl leading-tight text-ink sm:text-4xl lg:text-[44px]">
-            What can we help you find at Kelley?
-          </h2>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-black/68">
-            Ask questions about Kelley academics, careers, involvement, recruiting, and student resources.
-          </p>
+            <h1 className="font-cond-iu max-w-4xl border-l-[6px] border-crimson pl-5 text-4xl leading-[1.04] text-ink sm:text-5xl lg:text-[62px]">
+              What can we help you find at Kelley?
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-black/68">
+              Search Kelley academics, careers, involvement, recruiting, and student support resources in one place.
+            </p>
 
-          <form onSubmit={onSubmit} className="mt-7 border border-black/15 bg-white p-2 shadow-soft">
+          <form onSubmit={onSubmit} className="mt-8 border border-black/12 bg-white p-3 shadow-[0_18px_45px_rgba(36,49,66,0.12)]">
             <label htmlFor="question" className="sr-only">
               Ask a question about Kelley
             </label>
@@ -274,13 +294,13 @@ export default function Home() {
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 onInput={(event) => setQuestion(event.currentTarget.value)}
-                placeholder="Ask a question about Kelley..."
-                className="min-h-24 flex-1 resize-none border-0 bg-white px-4 py-3 text-base leading-7 text-ink outline-none placeholder:text-black/42 sm:min-h-14"
+                placeholder="Ask about advising, recruiting, majors, resumes, or student organizations..."
+                className="min-h-24 flex-1 resize-none border-0 bg-white px-4 py-3 text-[17px] leading-7 text-ink outline-none placeholder:text-black/38 sm:min-h-16"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="font-bold-iu inline-flex min-w-28 items-center justify-center gap-2 bg-crimson px-5 py-3 text-white transition hover:bg-[#7d0000] disabled:cursor-not-allowed disabled:bg-black/25"
+                className="font-bold-iu inline-flex min-w-32 items-center justify-center gap-2 bg-crimson px-6 py-4 text-white transition hover:bg-[#7d0000] disabled:cursor-not-allowed disabled:bg-black/25"
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                 Ask
@@ -288,13 +308,13 @@ export default function Home() {
             </div>
           </form>
 
-          <div className="mt-5 grid gap-x-8 gap-y-2 border-t border-black/10 pt-5 sm:grid-cols-2">
+          <div className="mt-6 grid gap-2 sm:grid-cols-2">
             {suggestedQuestions.map((item) => (
               <button
                 key={item}
                 type="button"
                 onClick={() => void askKelley(item)}
-                className="group flex items-start justify-between gap-3 py-2 text-left text-sm font-bold leading-6 text-ink transition hover:text-crimson"
+                className="group flex min-h-[58px] items-center justify-between gap-3 border border-black/10 bg-white/82 px-4 py-3 text-left text-sm font-bold leading-5 text-ink transition hover:border-crimson hover:bg-white hover:text-crimson hover:shadow-[0_8px_18px_rgba(36,49,66,0.08)]"
               >
                 <span>{item}</span>
                 <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-crimson transition group-hover:translate-x-1" />
@@ -302,19 +322,28 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            <span className="font-bold-iu text-black/50">Explore</span>
-            {categories.map((category) => (
-              <span key={category} className="font-bold text-crimson">
-                {category}
-              </span>
+          <div className="mt-7 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {categories.map(({ label, icon: Icon }) => (
+              <div key={label} className="flex items-center gap-2 border-t-2 border-crimson bg-white px-3 py-3 text-sm font-bold text-ink shadow-[0_8px_18px_rgba(36,49,66,0.06)]">
+                <Icon className="h-4 w-4 text-crimson" />
+                <span>{label}</span>
+              </div>
             ))}
           </div>
         </div>
 
-        <aside className="border-t-4 border-crimson bg-white p-6 shadow-soft">
-          <p className="font-mono-iu text-xs uppercase text-crimson">Knowledge base</p>
-          <h3 className="font-bold-iu mt-3 text-xl text-ink">Kelley sources in this prototype</h3>
+        <aside className="self-start border-t-[6px] border-crimson bg-white p-6 shadow-[0_18px_45px_rgba(36,49,66,0.10)]">
+          <div className="flex items-center justify-between gap-4">
+            <p className="font-mono-iu text-xs uppercase tracking-[0.12em] text-crimson">Kelley resources</p>
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-black/52">
+              <StatusDot />
+              Available
+            </span>
+          </div>
+          <h2 className="font-bold-iu mt-3 text-2xl leading-8 text-ink">Start with trusted student resources</h2>
+          <p className="mt-2 text-sm leading-6 text-black/60">
+            Direct links to frequently used Kelley undergraduate resources.
+          </p>
           <div className="mt-6 grid gap-3 border-t border-black/10 pt-5">
             {featuredResources.map((resource) => (
               <a
@@ -322,7 +351,7 @@ export default function Home() {
                 href={resource.url}
                 target="_blank"
                 rel="noreferrer"
-                className="group flex gap-3 border-l-2 border-crimson/35 pl-3"
+                className="group flex gap-3 border-l-2 border-crimson/50 bg-[#f7f5f2] p-4 transition hover:bg-white hover:shadow-[0_8px_18px_rgba(36,49,66,0.08)]"
               >
                 <FileText className="mt-1 h-4 w-4 shrink-0 text-crimson" />
                 <div>
@@ -339,43 +368,50 @@ export default function Home() {
         </div>
       </section>
 
-      <section ref={responseRef} className="mx-auto max-w-6xl scroll-mt-4 px-5 py-9">
+      <section ref={responseRef} className="mx-auto max-w-7xl scroll-mt-4 px-5 py-10">
         {loading && (
-          <div className="border border-black/10 bg-white p-6 shadow-soft">
-            <div className="flex items-center gap-3 text-ink">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <p className="font-bold-iu">Searching approved Kelley resources...</p>
+          <div className="border border-black/10 bg-white p-7 shadow-[0_18px_45px_rgba(36,49,66,0.10)]">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-ink">
+                <Loader2 className="h-5 w-5 animate-spin text-crimson" />
+                <div>
+                  <p className="font-bold-iu">Retrieving Kelley information</p>
+                  <p className="mt-1 text-sm text-black/56">Checking indexed Kelley documents and official web sources.</p>
+                </div>
+              </div>
+              <span className="hidden text-sm font-bold text-black/42 sm:block">Kelley resources</span>
             </div>
             <div className="mt-5 grid gap-3">
-              <div className="h-3 w-2/3 bg-black/10" />
-              <div className="h-3 w-5/6 bg-black/10" />
-              <div className="h-3 w-1/2 bg-black/10" />
+              <div className="h-3 w-2/3 animate-pulse bg-black/10" />
+              <div className="h-3 w-5/6 animate-pulse bg-black/10" />
+              <div className="h-3 w-1/2 animate-pulse bg-black/10" />
             </div>
           </div>
         )}
 
         {error && (
-          <div className="border-l-4 border-crimson bg-limestone p-6 text-ink shadow-soft">
+          <div className="border-l-4 border-crimson bg-white p-6 text-ink shadow-[0_18px_45px_rgba(36,49,66,0.10)]">
             <p className="font-bold-iu">Unable to retrieve Kelley information</p>
             <p className="mt-2 text-sm leading-6 text-black/65">{error}</p>
           </div>
         )}
 
         {result && (
-          <article className="border border-black/10 bg-white shadow-soft">
-            <div className="border-b border-black/10 p-6 sm:p-7">
+          <article className="border border-black/10 bg-white shadow-[0_20px_55px_rgba(36,49,66,0.12)]">
+            <div className="border-b border-black/10 bg-white p-6 sm:p-7">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="font-mono-iu text-xs uppercase text-crimson">Question</p>
-                <p className="font-mono-iu text-xs uppercase text-black/50">
-                  Answer grounded in {result.source_count} Kelley {result.source_count === 1 ? "source" : "sources"}
+                <p className="font-mono-iu text-xs uppercase tracking-[0.12em] text-crimson">Question</p>
+                <p className="font-mono-iu inline-flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-black/50">
+                  <StatusDot tone={result.confidence === "grounded" ? "ready" : "caution"} />
+                  Grounded in {result.source_count} Kelley {result.source_count === 1 ? "source" : "sources"}
                 </p>
               </div>
-              <h3 className="font-bold-iu mt-3 text-2xl leading-9 text-ink">{question}</h3>
+              <h2 className="font-bold-iu mt-3 text-2xl leading-9 text-ink">{question}</h2>
             </div>
 
-            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_390px]">
-              <div className="p-6 sm:p-8">
-                <p className="font-mono-iu text-xs uppercase text-crimson">Answer</p>
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_410px]">
+              <div className="p-6 sm:p-9">
+                <p className="font-mono-iu text-xs uppercase tracking-[0.12em] text-crimson">Answer</p>
                 <div className="mt-5 space-y-5 text-[17px] leading-8 text-black/76">
                   {answerLines.map((line, index) => {
                     const numbered = /^\d{2}\s/.test(line);
@@ -383,18 +419,18 @@ export default function Home() {
                     const heading = /^(recommended kelley resources|your interests|a note on lego|recommended organizations|why these fit|kelley resources)$/i.test(line);
                     if (heading) {
                       return (
-                        <h4 key={`${line}-${index}`} className="font-bold-iu border-t border-black/10 pt-6 text-xl text-ink">
+                        <h3 key={`${line}-${index}`} className="font-bold-iu border-t border-black/10 pt-6 text-xl text-ink">
                           {line}
-                        </h4>
+                        </h3>
                       );
                     }
                     if (numbered || decimalNumbered) {
                       const number = numbered ? line.slice(0, 2) : line.match(/^\d+/)?.[0] ?? "";
                       const text = numbered ? line.slice(3) : line.replace(/^\d+\.\s*/, "");
                       return (
-                        <div key={`${line}-${index}`} className="grid grid-cols-[42px_1fr] gap-4 border-l-4 border-crimson bg-limestone px-4 py-4">
-                          <span className="font-mono-iu text-sm text-crimson">{number}</span>
-                          <p className="font-bold-iu text-ink">{renderMarkdownLinks(text)}</p>
+                        <div key={`${line}-${index}`} className="grid grid-cols-[46px_1fr] gap-4 border border-black/10 bg-[#f7f5f2] px-4 py-4">
+                          <span className="font-mono-iu grid h-8 w-8 place-items-center bg-crimson text-xs text-white">{number}</span>
+                          <p className="font-bold-iu pt-0.5 text-ink">{renderMarkdownLinks(text)}</p>
                         </div>
                       );
                     }
@@ -408,7 +444,7 @@ export default function Home() {
 
                 {result.recommended_resources.length > 0 && (
                   <div className="mt-8 border-t border-black/10 pt-6">
-                    <p className="font-mono-iu text-xs uppercase text-crimson">Recommended Kelley Resources</p>
+                    <p className="font-mono-iu text-xs uppercase tracking-[0.12em] text-crimson">Recommended Kelley Resources</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
                       {result.recommended_resources.map((resource) => (
                         <a
@@ -416,9 +452,9 @@ export default function Home() {
                           href={resource.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="border border-black/10 bg-limestone p-4 transition hover:border-crimson"
+                          className="group border border-black/10 bg-[#f7f5f2] p-4 transition hover:border-crimson hover:bg-white"
                         >
-                          <span className="font-bold-iu block text-ink">{resource.title}</span>
+                          <span className="font-bold-iu block text-ink group-hover:text-crimson">{resource.title}</span>
                           <span className="mt-2 block text-sm leading-5 text-black/62">{resource.description}</span>
                           <span className="font-bold-iu mt-3 inline-flex items-center gap-1 text-sm text-crimson">
                             Visit resource <ArrowRight className="h-3.5 w-3.5" />
@@ -431,14 +467,14 @@ export default function Home() {
 
                 {result.suggested_followups.length > 0 && (
                   <div className="mt-8 border-t border-black/10 pt-6">
-                    <p className="font-mono-iu text-xs uppercase text-black/50">Suggested follow-up questions</p>
+                    <p className="font-mono-iu text-xs uppercase tracking-[0.12em] text-black/50">Suggested follow-up questions</p>
                     <div className="mt-4 grid gap-2 sm:grid-cols-3">
                       {result.suggested_followups.map((item) => (
                         <button
                           type="button"
                           key={item}
                           onClick={() => void askKelley(item)}
-                          className="border border-black/10 bg-white px-3 py-3 text-left text-sm font-bold leading-5 text-ink transition hover:border-crimson hover:text-crimson"
+                          className="border border-black/10 bg-white px-3 py-3 text-left text-sm font-bold leading-5 text-ink transition hover:border-crimson hover:bg-[#f7f5f2] hover:text-crimson"
                         >
                           {item}
                         </button>
@@ -448,8 +484,11 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="border-t border-black/10 bg-limestone p-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:border-l lg:border-t-0">
-                <p className="font-mono-iu text-xs uppercase text-crimson">Sources Used</p>
+              <div className="border-t border-black/10 bg-[#f7f5f2] p-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:border-l lg:border-t-0">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="font-mono-iu text-xs uppercase tracking-[0.12em] text-crimson">Sources Used</p>
+                  <span className="text-xs font-bold text-black/48">{result.sources.length} shown</span>
+                </div>
                 {result.sources.length === 0 ? (
                   <p className="mt-4 border border-black/10 bg-white p-4 text-sm font-semibold leading-6 text-black/60">
                     No source excerpts were strong enough to support an answer.
@@ -464,7 +503,7 @@ export default function Home() {
                             <button
                               type="button"
                               onClick={() => setOpenSourceId(open ? null : source.id)}
-                              className="flex w-full items-start justify-between gap-3 p-4 text-left"
+                              className="flex w-full items-start justify-between gap-3 p-4 text-left transition hover:bg-white"
                             >
                               <span>
                                 <span className="font-bold-iu block text-ink">{sourceDisplayName(source)}</span>
@@ -472,7 +511,7 @@ export default function Home() {
                                   {formatSectionName(source)}
                                   {source.page ? ` · p. ${source.page}` : ""}
                                 </span>
-                                <span className="font-mono-iu mt-2 block text-[11px] uppercase text-black/40">
+                                <span className="font-mono-iu mt-2 block text-[11px] uppercase tracking-[0.08em] text-black/40">
                                   {source.source_type || "Kelley Document"}
                                 </span>
                               </span>
@@ -506,7 +545,7 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-black/10 bg-ink px-5 py-6 text-center text-sm text-white/72">
-        Kelley AI Prototype · Responses are generated from a limited demonstration knowledge base.
+        Kelley School of Business · Indiana University
       </footer>
     </main>
   );

@@ -44,6 +44,10 @@ textarea:focus-visible {
   font-family: GeorgiaProBold, Georgia, serif;
 }
 
+.font-cond-iu {
+  font-family: BentonSansCondBold, BentonSansBold, Helvetica, Arial, sans-serif;
+}
+
 .font-mono-iu {
   font-family: AzeretMono, "Courier New", monospace;
 }
